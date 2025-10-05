@@ -1,1 +1,914 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirQuality Forecast | TEMPO Data Integration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --good: #2ecc71;
+            --moderate: #f39c12;
+            --unhealthy-sensitive: #e74c3c;
+            --unhealthy: #9b59b6;
+            --very-unhealthy: #e84393;
+            --hazardous: #7f8c8d;
+            --light: #ecf0f1;
+            --dark: #34495e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 1.8rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        
+        nav a:hover {
+            opacity: 0.8;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: transform 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .aqi-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+        
+        .aqi-value {
+            font-size: 4rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .aqi-label {
+            font-size: 1.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .aqi-good { background-color: var(--good); }
+        .aqi-moderate { background-color: var(--moderate); }
+        .aqi-unhealthy-sensitive { background-color: var(--unhealthy-sensitive); }
+        .aqi-unhealthy { background-color: var(--unhealthy); }
+        .aqi-very-unhealthy { background-color: var(--very-unhealthy); }
+        .aqi-hazardous { background-color: var(--hazardous); }
+        
+        .pollutant-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .pollutant-item {
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        
+        .pollutant-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .pollutant-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .map-container {
+            height: 300px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        
+        .forecast-container {
+            display: flex;
+            overflow-x: auto;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+        
+        .forecast-item {
+            min-width: 120px;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            text-align: center;
+        }
+        
+        .forecast-day {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .forecast-aqi {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+        
+        .health-recommendations {
+            margin-top: 1rem;
+        }
+        
+        .recommendation {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        
+        .notification-banner {
+            background-color: var(--unhealthy-sensitive);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-banner.hidden {
+            display: none;
+        }
+        
+        .close-notification {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        .settings-panel {
+            margin-top: 2rem;
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--secondary);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        footer {
+            background-color: var(--primary);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .data-source {
+            font-style: italic;
+            margin-top: 1rem;
+            opacity: 0.8;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        select {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .last-updated {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-wind"></i>
+                <h1>AirQuality Forecast</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a href="#"><i class="fas fa-map-marked-alt"></i> Map</a></li>
+                    <li><a href="#"><i class="fas fa-bell"></i> Alerts</a></li>
+                    <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="notification-banner hidden" id="notificationBanner">
+            <div>
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Air Quality Alert: Loading...</span>
+            </div>
+            <button class="close-notification" id="closeNotification">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Current Air Quality</h2>
+                    <div class="location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Loading...</span>
+                    </div>
+                </div>
+                <div class="aqi-display aqi-moderate">
+                    <div class="aqi-value">--</div>
+                    <div class="aqi-label">LOADING</div>
+                    <div class="aqi-description">Fetching latest air quality data...</div>
+                </div>
+                
+                <div class="pollutant-grid">
+                    <div class="pollutant-item">
+                        <div class="pollutant-name">PM2.5</div>
+                        <div class="pollutant-value">-- µg/m³</div>
+                        <div class="pollutant-status">--</div>
+                    </div>
+                    <div class="pollutant-item">
+                        <div class="pollutant-name">PM10</div>
+                        <div class="pollutant-value">-- µg/m³</div>
+                        <div class="pollutant-status">--</div>
+                    </div>
+                    <div class="pollutant-item">
+                        <div class="pollutant-name">O₃</div>
+                        <div class="pollutant-value">-- ppb</div>
+                        <div class="pollutant-status">--</div>
+                    </div>
+                    <div class="pollutant-item">
+                        <div class="pollutant-name">NO₂</div>
+                        <div class="pollutant-value">-- ppb</div>
+                        <div class="pollutant-status">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Air Quality Map</h2>
+                    <div class="map-legend">
+                        <span>Good</span>
+                        <span style="color: var(--moderate)">Moderate</span>
+                        <span style="color: var(--unhealthy-sensitive)">Unhealthy</span>
+                    </div>
+                </div>
+                <div class="map-container">
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%; background: linear-gradient(145deg, #e9ecef, #ced4da); border-radius: 8px;">
+                        <div style="text-align: center; color: #6c757d;">
+                            <i class="fas fa-map" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <p>Interactive Air Quality Map</p>
+                            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Integrated with TEMPO satellite data</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="health-recommendations">
+                    <h3 style="margin-bottom: 1rem;">Health Recommendations</h3>
+                    <div class="recommendation">
+                        <i class="fas fa-sync fa-spin" style="color: var(--secondary);"></i>
+                        <span>Loading recommendations...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">5-Day Air Quality Forecast</h2>
+                    <div class="forecast-source">
+                        <i class="fas fa-satellite"></i>
+                        <span>TEMPO Data</span>
+                    </div>
+                </div>
+                <div class="forecast-container">
+                    <div class="forecast-item">
+                        <div class="forecast-day">Today</div>
+                        <div class="forecast-aqi">--</div>
+                        <div class="forecast-desc">Loading</div>
+                    </div>
+                    <div class="forecast-item">
+                        <div class="forecast-day">Wed</div>
+                        <div class="forecast-aqi">--</div>
+                        <div class="forecast-desc">Loading</div>
+                    </div>
+                    <div class="forecast-item">
+                        <div class="forecast-day">Thu</div>
+                        <div class="forecast-aqi">--</div>
+                        <div class="forecast-desc">Loading</div>
+                    </div>
+                    <div class="forecast-item">
+                        <div class="forecast-day">Fri</div>
+                        <div class="forecast-aqi">--</div>
+                        <div class="forecast-desc">Loading</div>
+                    </div>
+                    <div class="forecast-item">
+                        <div class="forecast-day">Sat</div>
+                        <div class="forecast-aqi">--</div>
+                        <div class="forecast-desc">Loading</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem;">
+                    <h3 style="margin-bottom: 0.5rem;">Forecast Insights</h3>
+                    <p>Loading forecast analysis...</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Data Sources & Integration</h2>
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="data-sources">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
+                        <i class="fas fa-satellite" style="color: var(--secondary); font-size: 1.5rem;"></i>
+                        <div>
+                            <div style="font-weight: 600;">TEMPO Satellite Data</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">Real-time atmospheric composition measurements</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
+                        <i class="fas fa-temperature-low" style="color: var(--secondary); font-size: 1.5rem;"></i>
+                        <div>
+                            <div style="font-weight: 600;">Weather Data</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">Temperature, humidity, wind patterns</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
+                        <i class="fas fa-map-marker-alt" style="color: var(--secondary); font-size: 1.5rem;"></i>
+                        <div>
+                            <div style="font-weight: 600;">Ground Monitoring Stations</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">Local air quality measurements</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-panel">
+                    <h3 style="margin-bottom: 1rem;">Notification Settings</h3>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <span>Push Notifications</span>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span>Email Alerts</span>
+                            <label class="toggle">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span>Sensitive Group Warnings</span>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span>Forecast Updates</span>
+                            <label class="toggle">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <p>AirQuality Forecast &copy; 2023 | Integrating NASA TEMPO data for better air quality predictions</p>
+            <p class="data-source">Data sources: NASA TEMPO, NOAA Weather, EPA AirNow, OpenAQ</p>
+        </div>
+    </footer>
+
+    <script>
+        // Air Quality App with Live Data
+        class AirQualityApp {
+            constructor() {
+                this.baseURL = 'http://localhost:3000/api';
+                this.currentLocation = 'New York, NY';
+                this.init();
+            }
+
+            async init() {
+                // Close notification functionality
+                document.getElementById('closeNotification').addEventListener('click', function() {
+                    document.getElementById('notificationBanner').classList.add('hidden');
+                });
+
+                // Load initial data
+                await this.loadAirQualityData();
+                
+                // Set up real-time updates
+                this.setupRealTimeUpdates();
+                
+                // Set up location selector
+                this.setupLocationSelector();
+                
+                // Update data every 30 seconds
+                setInterval(() => this.loadAirQualityData(), 30000);
+            }
+
+            async loadAirQualityData() {
+                try {
+                    const response = await fetch(`${this.baseURL}/air-quality?location=${encodeURIComponent(this.currentLocation)}`);
+                    const data = await response.json();
+                    
+                    this.updateDashboard(data);
+                    this.updateNotificationBanner(data);
+                } catch (error) {
+                    console.error('Error loading air quality data:', error);
+                    // Fallback to mock data updates
+                    this.updateMockData();
+                }
+            }
+
+            updateDashboard(data) {
+                // Update AQI display
+                const aqiValue = document.querySelector('.aqi-value');
+                const aqiDisplay = document.querySelector('.aqi-display');
+                const aqiLabel = document.querySelector('.aqi-label');
+                const aqiDescription = document.querySelector('.aqi-description');
+                const locationElement = document.querySelector('.location span');
+
+                if (data.aqi !== undefined) {
+                    aqiValue.textContent = data.aqi;
+                }
+                
+                if (data.location) {
+                    locationElement.textContent = data.location;
+                } else {
+                    locationElement.textContent = this.currentLocation;
+                }
+
+                // Update AQI category and styling
+                if (data.aqi !== undefined) {
+                    this.updateAqiCategory(data.aqi, aqiDisplay, aqiLabel, aqiDescription);
+                }
+
+                // Update pollutants
+                if (data.pollutants) {
+                    this.updatePollutants(data.pollutants);
+                }
+
+                // Update forecast
+                if (data.forecast) {
+                    this.updateForecast(data.forecast);
+                }
+
+                // Update health recommendations
+                if (data.healthRecommendations) {
+                    this.updateHealthRecommendations(data.healthRecommendations);
+                }
+
+                // Update last updated time
+                this.updateLastUpdated(data.lastUpdated);
+            }
+
+            updateAqiCategory(aqi, aqiDisplay, aqiLabel, aqiDescription) {
+                // Remove all AQI classes
+                aqiDisplay.classList.remove('aqi-good', 'aqi-moderate', 'aqi-unhealthy-sensitive', 
+                                          'aqi-unhealthy', 'aqi-very-unhealthy', 'aqi-hazardous');
+                
+                let description = '';
+                
+                // Add appropriate class based on AQI value
+                if (aqi <= 50) {
+                    aqiDisplay.classList.add('aqi-good');
+                    aqiLabel.textContent = 'GOOD';
+                    description = 'Air quality is satisfactory, and air pollution poses little or no risk.';
+                } else if (aqi <= 100) {
+                    aqiDisplay.classList.add('aqi-moderate');
+                    aqiLabel.textContent = 'MODERATE';
+                    description = 'Air quality is acceptable. However, there may be a risk for some people.';
+                } else if (aqi <= 150) {
+                    aqiDisplay.classList.add('aqi-unhealthy-sensitive');
+                    aqiLabel.textContent = 'UNHEALTHY FOR SENSITIVE GROUPS';
+                    description = 'Members of sensitive groups may experience health effects.';
+                } else if (aqi <= 200) {
+                    aqiDisplay.classList.add('aqi-unhealthy');
+                    aqiLabel.textContent = 'UNHEALTHY';
+                    description = 'Some members of the general public may experience health effects.';
+                } else if (aqi <= 300) {
+                    aqiDisplay.classList.add('aqi-very-unhealthy');
+                    aqiLabel.textContent = 'VERY UNHEALTHY';
+                    description = 'Health alert: The risk of health effects is increased for everyone.';
+                } else {
+                    aqiDisplay.classList.add('aqi-hazardous');
+                    aqiLabel.textContent = 'HAZARDOUS';
+                    description = 'Health warning of emergency conditions.';
+                }
+                
+                if (aqiDescription) {
+                    aqiDescription.textContent = description;
+                }
+            }
+
+            updatePollutants(pollutants) {
+                const pollutantMap = {
+                    'pm25': 'PM2.5',
+                    'pm10': 'PM10',
+                    'o3': 'O₃',
+                    'no2': 'NO₂',
+                    'so2': 'SO₂',
+                    'co': 'CO'
+                };
+
+                Object.keys(pollutants).forEach(pollutantKey => {
+                    const pollutant = pollutants[pollutantKey];
+                    const displayName = pollutantMap[pollutantKey] || pollutantKey.toUpperCase();
+                    const element = this.findPollutantElement(displayName);
+                    
+                    if (element) {
+                        element.querySelector('.pollutant-value').textContent = 
+                            `${pollutant.value} ${pollutant.unit}`;
+                        element.querySelector('.pollutant-status').textContent = pollutant.status;
+                    }
+                });
+            }
+
+            findPollutantElement(name) {
+                const elements = document.querySelectorAll('.pollutant-item');
+                for (let element of elements) {
+                    if (element.querySelector('.pollutant-name').textContent === name) {
+                        return element;
+                    }
+                }
+                return null;
+            }
+
+            updateForecast(forecast) {
+                const forecastContainer = document.querySelector('.forecast-container');
+                forecastContainer.innerHTML = '';
+
+                forecast.forEach(day => {
+                    const forecastItem = document.createElement('div');
+                    forecastItem.className = 'forecast-item';
+                    
+                    const aqiClass = this.getAqiClass(day.aqi);
+                    
+                    forecastItem.innerHTML = `
+                        <div class="forecast-day">${day.day}</div>
+                        <div class="forecast-aqi ${aqiClass}">${day.aqi}</div>
+                        <div class="forecast-desc">${this.getCategoryText(day.category)}</div>
+                    `;
+                    
+                    forecastContainer.appendChild(forecastItem);
+                });
+            }
+
+            updateHealthRecommendations(recommendations) {
+                const container = document.querySelector('.health-recommendations');
+                const recommendationsContainer = container.querySelector('.recommendation').parentNode;
+                
+                recommendationsContainer.innerHTML = '<h3 style="margin-bottom: 1rem;">Health Recommendations</h3>';
+                
+                recommendations.forEach(rec => {
+                    const recElement = document.createElement('div');
+                    recElement.className = 'recommendation';
+                    
+                    const icon = rec.includes('Ideal') ? 'fa-check-circle' : 
+                                rec.includes('sensitive') ? 'fa-info-circle' : 
+                                rec.includes('Avoid') ? 'fa-exclamation-triangle' : 'fa-info-circle';
+                    
+                    const color = rec.includes('Ideal') ? 'var(--good)' : 
+                                 rec.includes('sensitive') ? 'var(--moderate)' : 
+                                rec.includes('Avoid') ? 'var(--unhealthy-sensitive)' : 'var(--secondary)';
+                    
+                    recElement.innerHTML = `
+                        <i class="fas ${icon}" style="color: ${color};"></i>
+                        <span>${rec}</span>
+                    `;
+                    
+                    recommendationsContainer.appendChild(recElement);
+                });
+            }
+
+            getAqiClass(aqi) {
+                if (aqi <= 50) return 'aqi-good';
+                if (aqi <= 100) return 'aqi-moderate';
+                if (aqi <= 150) return 'aqi-unhealthy-sensitive';
+                if (aqi <= 200) return 'aqi-unhealthy';
+                if (aqi <= 300) return 'aqi-very-unhealthy';
+                return 'aqi-hazardous';
+            }
+
+            getCategoryText(category) {
+                const categories = {
+                    'good': 'Good',
+                    'moderate': 'Moderate',
+                    'unhealthy-sensitive': 'Unhealthy for Sensitive Groups',
+                    'unhealthy': 'Unhealthy',
+                    'very-unhealthy': 'Very Unhealthy',
+                    'hazardous': 'Hazardous'
+                };
+                return categories[category] || category;
+            }
+
+            updateNotificationBanner(data) {
+                const banner = document.getElementById('notificationBanner');
+                
+                if (data.aqi > 100) {
+                    banner.classList.remove('hidden');
+                    let message = 'Air Quality Alert: ';
+                    
+                    if (data.aqi <= 150) {
+                        message += 'Unhealthy for sensitive groups. Reduce prolonged outdoor exertion.';
+                        banner.style.backgroundColor = 'var(--unhealthy-sensitive)';
+                    } else if (data.aqi <= 200) {
+                        message += 'Unhealthy conditions detected. Limit outdoor activities.';
+                        banner.style.backgroundColor = 'var(--unhealthy)';
+                    } else {
+                        message += 'Hazardous conditions. Avoid outdoor activities.';
+                        banner.style.backgroundColor = 'var(--hazardous)';
+                    }
+                    
+                    banner.querySelector('span').textContent = message;
+                } else {
+                    banner.classList.add('hidden');
+                }
+            }
+
+            updateLastUpdated(timestamp) {
+                let lastUpdatedElement = document.querySelector('.last-updated');
+                if (!lastUpdatedElement) {
+                    lastUpdatedElement = document.createElement('div');
+                    lastUpdatedElement.className = 'last-updated';
+                    document.querySelector('.aqi-display').parentNode.appendChild(lastUpdatedElement);
+                }
+                
+                const date = new Date(timestamp);
+                lastUpdatedElement.textContent = `Last updated: ${date.toLocaleTimeString()}`;
+            }
+
+            setupRealTimeUpdates() {
+                try {
+                    // WebSocket connection for real-time updates
+                    const ws = new WebSocket('ws://localhost:8080');
+                    
+                    ws.onopen = () => {
+                        console.log('Connected to real-time updates');
+                    };
+                    
+                    ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        if (message.type === 'update') {
+                            this.updateDashboard(message.data);
+                        }
+                    };
+                    
+                    ws.onerror = (error) => {
+                        console.log('WebSocket error, using polling instead:', error);
+                    };
+                    
+                    ws.onclose = () => {
+                        console.log('WebSocket connection closed');
+                    };
+                } catch (error) {
+                    console.log('WebSocket not available, using polling only');
+                }
+            }
+
+            async setupLocationSelector() {
+                try {
+                    const response = await fetch(`${this.baseURL}/locations`);
+                    const locations = await response.json();
+                    
+                    const locationElement = document.querySelector('.location');
+                    const select = document.createElement('select');
+                    select.innerHTML = '<option value="">Loading...</option>';
+                    
+                    // Populate options
+                    select.innerHTML = locations.map(location => 
+                        `<option value="${location}" ${location === this.currentLocation ? 'selected' : ''}>${location}</option>`
+                    ).join('');
+                    
+                    select.addEventListener('change', (e) => {
+                        this.currentLocation = e.target.value;
+                        this.loadAirQualityData();
+                    });
+                    
+                    locationElement.querySelector('span').replaceWith(select);
+                } catch (error) {
+                    console.error('Error loading locations:', error);
+                }
+            }
+
+            updateMockData() {
+                // Fallback mock data updates
+                const aqiValue = document.querySelector('.aqi-value');
+                let currentAqi = parseInt(aqiValue.textContent);
+                if (isNaN(currentAqi)) currentAqi = 78;
+                
+                const change = Math.floor(Math.random() * 5) - 2;
+                const newAqi = Math.max(0, currentAqi + change);
+                
+                aqiValue.textContent = newAqi;
+                this.updateAqiCategory(
+                    newAqi, 
+                    document.querySelector('.aqi-display'), 
+                    document.querySelector('.aqi-label'),
+                    document.querySelector('.aqi-description')
+                );
+            }
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new AirQualityApp();
+        });
+    </script>
+</body>
+</html>
